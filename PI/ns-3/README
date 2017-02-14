@@ -16,4 +16,4 @@ first-bulksend.cc - simulates light TCP traffic
 
 second-bulksend.cc - simulates heavy TCP traffic
 
-third-mix.cc - simulates mix TCP and UDP traffi
+third-mix.cc - simulates mix TCP and UDP traffic
