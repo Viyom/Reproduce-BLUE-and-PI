@@ -1,6 +1,6 @@
 # Reproduce the results of BLUE and PI
 
-This repository contains the source code related to the BLUE and PI paper submitted to WNS3 2016.
+This repository contains the source code related to the BLUE and PI paper submitted to WNS3 2017.
 
 There are two main directories in this repository: BLUE and PI.
 
