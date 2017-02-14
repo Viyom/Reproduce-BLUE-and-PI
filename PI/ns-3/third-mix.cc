@@ -1,6 +1,6 @@
 /*
- * This script simulates mix TCP and UDP traffic for PI evaluation
- * Authors: Shravya K.S, Smriti Murali and Mohit P. Tahiliani
+ * This script simulates light TCP traffic for PI evaluation
+ * Authors: Viyom Mittal and Mohit P. Tahiliani
  * Wireless Information Networking Group
  * NITK Surathkal, Mangalore, India
 */
@@ -24,21 +24,11 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("PiTests");
 
 std::stringstream filePlotQueue;
-std::stringstream filePlotQueueAvg;
-std::stringstream filePlotThroughput;
-std::stringstream filePlotDrops;
-uint32_t i = 0;
-uint32_t checkTimes;
-double avgQueueSize;
-
 
 void
 CheckQueueSize (Ptr<QueueDisc> queue)
 {
   uint32_t qSize = StaticCast<PiQueueDisc> (queue)->GetQueueSize ();
-
-  avgQueueSize += qSize;
-  checkTimes++;
 
   // check queue size every 1/100 of a second
   Simulator::Schedule (Seconds (0.1), &CheckQueueSize, queue);
@@ -46,35 +36,6 @@ CheckQueueSize (Ptr<QueueDisc> queue)
   std::ofstream fPlotQueue (filePlotQueue.str ().c_str (), std::ios::out|std::ios::app);
   fPlotQueue << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
   fPlotQueue.close ();
-
-  std::ofstream fPlotQueueAvg (filePlotQueueAvg.str ().c_str (), std::ios::out|std::ios::app);
-  fPlotQueueAvg << Simulator::Now ().GetSeconds () << " " << avgQueueSize / checkTimes << std::endl;
-  fPlotQueueAvg.close ();
-}
-/*
-void
-CheckThroughput (Ptr<QueueDisc> queue)
-{
-  uint32_t qThroughput = StaticCast<PiQueueDisc> (queue)->GetThroughput ();
-  // check throughput every 1/10 of a second
-  Simulator::Schedule (Seconds (0.1), &CheckThroughput, queue);
-
-  std::ofstream fPlotThroughput (filePlotThroughput.str ().c_str (), std::ios::out|std::ios::app);
-  fPlotThroughput << Simulator::Now ().GetSeconds () << " " << qThroughput << std::endl;
-  fPlotThroughput.close ();
-}
-*/
-void
-CheckDrops (Ptr<QueueDisc> queue)
-{
-  PiQueueDisc::Stats st = StaticCast<PiQueueDisc> (queue)->GetStats ();
-  uint32_t qDrops = st.unforcedDrop + st.forcedDrop;
-  // check dropCount every 1/100 of a second
-  Simulator::Schedule (Seconds (0.01), &CheckDrops, queue);
-
-  std::ofstream fPlotDrops (filePlotDrops.str ().c_str (), std::ios::out|std::ios::app);
-  fPlotDrops << Simulator::Now ().GetSeconds () << " " << qDrops << std::endl;
-  fPlotDrops.close ();
 }
 
 int main (int argc, char *argv[])
@@ -113,16 +74,14 @@ int main (int argc, char *argv[])
   NodeContainer sink;
   sink.Create (1);
 
-  Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (1));
-  Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue (1000));
-  Config::SetDefault ("ns3::TcpSocketBase::WindowScaling", BooleanValue (true));
-
   Config::SetDefault ("ns3::Queue::MaxPackets", UintegerValue (13));
-  Config::SetDefault ("ns3::TcpSocket::DelAckTimeout", TimeValue(Seconds (0)));
   Config::SetDefault ("ns3::PfifoFastQueueDisc::Limit", UintegerValue (50));
 
-//=========
+  Config::SetDefault ("ns3::TcpSocket::DelAckTimeout", TimeValue(Seconds (0)));
+  Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (1));
   Config::SetDefault ("ns3::TcpSocketBase::LimitedTransmit", BooleanValue (false));
+  Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue (1000));
+  Config::SetDefault ("ns3::TcpSocketBase::WindowScaling", BooleanValue (true));
 
   Config::SetDefault ("ns3::PiQueueDisc::MeanPktSize", UintegerValue (1000));
   Config::SetDefault ("ns3::PiQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
@@ -182,9 +141,6 @@ int main (int argc, char *argv[])
 
   NetDeviceContainer udpdevices[2];
 
-
-
-
   for (i = 0; i < 5; i++)
     {
       //devices[i] = accessLink.Install (source.Get (i), gateway.Get (0));
@@ -221,8 +177,6 @@ int main (int argc, char *argv[])
 
 
   // Configure application
-  //AddressValue remoteAddress (InetSocketAddress (sink_Interfaces.GetAddress (0, 0), port));
-  //AddressValue remoteAddress1 (InetSocketAddress (sink_Interfaces.GetAddress (0, 0), port1));
   AddressValue remoteAddress (InetSocketAddress (interfaces_sink.GetAddress (1), port));
   AddressValue remoteAddress1 (InetSocketAddress (interfaces_sink.GetAddress (1), port1));
   for (uint16_t i = 0; i < source.GetN (); i++)
@@ -273,39 +227,22 @@ int main (int argc, char *argv[])
   sinkApp1.Start (Seconds (0));
   sinkApp1.Stop (Seconds (stopTime));
 
-
-
   if (writeForPlot)
     {
-     
       filePlotQueue << pathOut << "/" << "pi-queue3.plotme";
-      filePlotQueueAvg << pathOut << "/" << "pi-queue_avg3.plotme";
-//      filePlotThroughput << pathOut << "/" << "pi-throughput3.plotme";
-      filePlotDrops << pathOut << "/" << "pi-drops3.plotme";
-
       remove (filePlotQueue.str ().c_str ());
-      remove (filePlotQueueAvg.str ().c_str ());
-//      remove (filePlotThroughput.str ().c_str ());
-      remove (filePlotDrops.str ().c_str ());
       Ptr<QueueDisc> queue = queueDiscs.Get (0);
       Simulator::ScheduleNow (&CheckQueueSize, queue);
-//      Simulator::ScheduleNow (&CheckThroughput, queue);
-      Simulator::ScheduleNow (&CheckDrops, queue);
-
     }
-
 
   if (isPcapEnabled)
     {
       bottleneckLink.EnablePcap (pcapFileName,gateway,false);
     }
 
-
   FlowMonitorHelper flowmon;
   Ptr<FlowMonitor> allMon;
-  allMon = flowmon.InstallAll ();
-
-
+  allMon = flowmon.InstallAll ()
   flowmon.SerializeToXmlFile ("third-mix.xml", true, true);
 
   Simulator::Stop (Seconds (stopTime));
@@ -313,17 +250,10 @@ int main (int argc, char *argv[])
 
   if (printPiStats)
     {
-      PiQueueDisc::Stats st1 = StaticCast<PiQueueDisc> (queueDiscs.Get (0))->GetStats ();
-      std::cout << "*** pi stats from Node 2 queue ***" << std::endl;
-      std::cout << "\t " << st1.unforcedDrop << " drops due to probability " << std::endl;
-      std::cout << "\t " << st1.forcedDrop << " drops due queue full" << std::endl;
-
-
-      PiQueueDisc::Stats st2 = StaticCast<PiQueueDisc> (queueDiscs.Get (1))->GetStats ();
-      std::cout << "*** pi stats from Node 2 queue ***" << std::endl;
-      std::cout << "\t " << st2.unforcedDrop << " drops due to probability " << std::endl;
-      std::cout << "\t " << st2.forcedDrop << " drops due queue full" << std::endl;
-
+      PiQueueDisc::Stats st = StaticCast<PiQueueDisc> (queueDiscs.Get (0))->GetStats ();
+      std::cout << "*** pi stats from bottleneck queue ***" << std::endl;
+      std::cout << "\t " << st.unforcedDrop << " drops due to probability " << std::endl;
+      std::cout << "\t " << st.forcedDrop << " drops due queue full" << std::endl;
     }
 
   Simulator::Destroy ();
